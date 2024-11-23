@@ -4,12 +4,13 @@
 #include <boost/asio.hpp>
 #include <functional>
 
+#include "Global.h"
 #include "Packet.h"
 #include "Session.h"
 #include "ObjectPool.h"
 
 namespace flaw {
-	class TcpClient {
+	class FLAW_API TcpClient {
 	public:
 		TcpClient(boost::asio::io_context& ioContext);
 

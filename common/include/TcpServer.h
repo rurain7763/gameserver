@@ -6,12 +6,13 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Global.h"
 #include "Packet.h"
 #include "Session.h"
 #include "ObjectPool.h"
 
 namespace flaw {
-	class TcpServer {
+	class FLAW_API TcpServer {
 	public:
 		TcpServer(boost::asio::io_context& ioContext);
 

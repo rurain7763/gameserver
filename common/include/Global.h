@@ -1,23 +1,18 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <boost/serialization/serialization.hpp>
-
-enum PacketType : short {
-	PACKET_TYPE_A = 1,
-};
-
-struct A {
-	char c_data;
-	int i_data;
-	float f_data;
-
-	template <class Archive>
-	void serialize(Archive& ar, const unsigned int version) {
-		ar& c_data;
-		ar& i_data;
-		ar& f_data;
-	}
-};
+#ifdef _WIN32
+	#ifdef DLL_EXPORT
+		#define FLAW_API __declspec(dllexport)
+	#else
+		#define FLAW_API __declspec(dllimport)
+	#endif
+#else
+	#ifdef DLL_EXPORT
+		#define FLAW_API __attribute__((visibility("default")))
+	#else
+		#define FLAW_API
+	#endif
+#endif
 
 #endif

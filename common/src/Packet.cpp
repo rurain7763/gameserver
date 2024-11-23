@@ -7,6 +7,11 @@ namespace flaw {
 		header.packetId = 0;
 	}
 
+	Packet::Packet(const Packet& other) {
+		header = other.header;
+		serializedData = other.serializedData;
+	}
+
 	Packet::Packet(Packet&& other) {
 		header = std::move(other.header);
 		serializedData = std::move(other.serializedData);

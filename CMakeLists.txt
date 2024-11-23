@@ -31,12 +31,16 @@ if(WIN32)
 
     find_package(Boost 1.86.0 REQUIRED COMPONENTS serialization)
 
-    add_library(common STATIC
+    add_library(common SHARED
         ./common/src/Packet.cpp
         ./common/src/Session.cpp
         ./common/src/TcpClient.cpp
         ./common/src/TcpServer.cpp
         ./common/src/UdpServer.cpp
+    )
+
+    add_compile_definitions(common 
+        PRIVATE DLL_EXPORT
     )
 
     target_include_directories(common

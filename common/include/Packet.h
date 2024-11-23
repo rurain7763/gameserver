@@ -4,21 +4,24 @@
 #include <vector>
 #include <sstream>
 
+#include "Global.h"
 #include "Serialization.h"
 
 namespace flaw {
 	#pragma pack(push, 1)
-	struct PacketHeader {
+	struct FLAW_API PacketHeader {
 		int packetSize;
 		int senderId;
 		short packetId;
 	};
 
-	struct Packet {
+	struct FLAW_API Packet {
 		PacketHeader header;
 		std::vector<char> serializedData;
 
 		Packet();
+
+		Packet(const Packet& other);
 
 		Packet(Packet&& other);
 
@@ -46,6 +49,12 @@ namespace flaw {
 		}
 
 		void GetData(std::ostream& os) const;
+
+		Packet& operator=(const Packet& other) {
+			header = other.header;
+			serializedData = other.serializedData;
+			return *this;
+		}
 
 		Packet& operator=(Packet&& other) {
 			header = std::move(other.header);

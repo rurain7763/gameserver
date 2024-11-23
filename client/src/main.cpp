@@ -1,11 +1,11 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-#include "Global.h"
 #include "TcpClient.h"
 #include "UdpServer.h"
 #include "Serialization.h"
 #include "Packet.h"
+#include "TestPacket.h"
 
 #if true
 bool running = false;

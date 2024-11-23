@@ -6,8 +6,10 @@
 #include <string>
 #include <sstream>
 
+#include "Global.h"
+
 namespace flaw {
-    class Serialization {
+    class FLAW_API Serialization {
     public:
         template <typename TData>
         static void Serialize(const TData& data, std::vector<char>& result) {

@@ -1,10 +1,10 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-#include "Global.h"
 #include "TcpServer.h"
 #include "UdpServer.h"
 #include "Serialization.h"
+#include "TestPacket.h"
 
 #if true
 std::shared_ptr<flaw::TcpServer> server;

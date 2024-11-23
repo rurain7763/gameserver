@@ -3,8 +3,10 @@
 
 #include <boost/asio.hpp>
 
+#include "Global.h"
+
 namespace flaw {
-	struct Peer {
+	struct FLAW_API Peer {
 		boost::asio::ip::udp::endpoint endpoint;
 
 		static Peer Create(const std::string& ip, const short port) {
@@ -25,7 +27,7 @@ namespace flaw {
 		}
 	};
 
-	class UdpServer {
+	class FLAW_API UdpServer {
 	public:
 		UdpServer(boost::asio::io_context& ioContext);
 
