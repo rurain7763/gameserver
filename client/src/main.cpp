@@ -23,7 +23,7 @@ void OnPacketReceived(std::shared_ptr<flaw::Packet> packet) {
 	std::cout << "Packet received" << std::endl;
 }
 
-void main() {
+int main() {
 	try {
 		boost::asio::io_context ioContext;
 
@@ -76,7 +76,7 @@ void main() {
 		std::cerr << e.what() << std::endl;
 	}
 
-	return;
+	return 0;
 }
 #else
 void OnPacketReceived(const flaw::Peer& peer, const char* data, size_t size) {
