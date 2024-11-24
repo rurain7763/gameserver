@@ -6,6 +6,7 @@
 
 #include "Global.h"
 #include "Serialization.h"
+#include "packets.pb.h"
 
 namespace flaw {
 	#pragma pack(push, 1)
@@ -23,7 +24,7 @@ namespace flaw {
 
 		Packet(const Packet& other);
 
-		Packet(Packet&& other);
+		Packet(Packet&& other) noexcept;
 
 		Packet(int senderId, short packetId, const std::vector<char>& data);
 		
@@ -56,7 +57,7 @@ namespace flaw {
 			return *this;
 		}
 
-		Packet& operator=(Packet&& other) {
+		Packet& operator=(Packet&& other) noexcept {
 			header = std::move(other.header);
 			serializedData = std::move(other.serializedData);
 			return *this;

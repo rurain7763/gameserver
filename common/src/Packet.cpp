@@ -2,7 +2,7 @@
 
 namespace flaw {
 	Packet::Packet() {
-		header.packetSize = sizeof(PacketHeader);
+		header.packetSize = 0;
 		header.senderId = 0;
 		header.packetId = 0;
 	}
@@ -12,7 +12,7 @@ namespace flaw {
 		serializedData = other.serializedData;
 	}
 
-	Packet::Packet(Packet&& other) {
+	Packet::Packet(Packet&& other) noexcept {
 		header = std::move(other.header);
 		serializedData = std::move(other.serializedData);
 	}

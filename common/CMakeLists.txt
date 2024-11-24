@@ -26,13 +26,19 @@ target_compile_definitions(common
 
 if(WIN32) 
     target_include_directories(common
-        PRIVATE ${BOOST_INCLUDEDIR}
+        PRIVATE ${BOOST_INCLUDEDIR}D
+        PRIVATE ../packets/include
         PRIVATE include
     )
-    
+
+    target_link_directories(common
+        PRIVATE ${VCPKG_INSTALLED}/lib
+    )
+
 elseif(APPLE)
     target_include_directories(common
         PRIVATE ${BREW_DIR}/include
+        PRIVATE ../packets/include
         PRIVATE include
     )
 

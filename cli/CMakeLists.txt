@@ -1,4 +1,33 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(cli VERSION 1.0 LANGUAGES CXX CSharp)
+project(CLIWrapper VERSION 1.0 LANGUAGES CXX CSharp)
 
+if(WIN32)
+    add_library(CLIWrapper SHARED
+        src/PacketWrapper.cpp
+        src/TcpClientWrapper.cpp
+        src/SerializationWrapper.cpp
+    )
+
+    target_include_directories(CLIWrapper
+        PRIVATE ${BOOST_INCLUDEDIR}
+        PRIVATE ../common/include
+        PRIVATE include
+    )
+
+    target_link_directories(CLIWrapper
+        PRIVATE ${BOOST_LIBRARYDIR}
+    )
+
+    target_link_libraries(CLIWrapper
+        Boost::serialization
+        common
+    )
+
+    set_target_properties(CLIWrapper PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+        COMPILE_FLAGS "/clr"
+    )
+endif()

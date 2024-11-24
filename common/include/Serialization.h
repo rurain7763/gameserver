@@ -1,10 +1,12 @@
 #ifndef SERIALIZATION_H
 #define SERIALIZATION_H
 
+#ifdef BOOST_SERIALIZATION
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <string>
 #include <sstream>
+#endif
 
 #include "Global.h"
 
@@ -13,27 +15,21 @@ namespace flaw {
     public:
         template <typename TData>
         static void Serialize(const TData& data, std::vector<char>& result) {
-            std::ostringstream oss(std::ios::binary);
-            boost::archive::binary_oarchive oa(oss, boost::archive::no_header | boost::archive::no_tracking);
-            oa << data;
-            const std::string str = oss.str();
-            result.assign(str.begin(), str.end());
+            const long size = data.ByteSizeLong();
+            result.resize(size);
+            data.SerializeToArray(result.data(), size);
         }
 
         template <typename T>
         static T Deserialize(const std::vector<char>& data) {
-            std::istringstream iss(std::string(data.begin(), data.end()), std::ios::binary);
-            boost::archive::binary_iarchive ia(iss, boost::archive::no_header | boost::archive::no_tracking);
             T result;
-            ia >> result;
+            result.ParseFromArray(data.data(), data.size());
             return result;
         }
 
         template <typename T>
         static void Deserialize(const std::vector<char>& data, T& result) {
-            std::istringstream iss(std::string(data.begin(), data.end()), std::ios::binary);
-            boost::archive::binary_iarchive ia(iss, boost::archive::no_header | boost::archive::no_tracking);
-            ia >> result;
+            result.ParseFromArray(data.data(), data.size());
         }
     };
 }

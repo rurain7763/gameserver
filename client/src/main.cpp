@@ -5,7 +5,6 @@
 #include "UdpServer.h"
 #include "Serialization.h"
 #include "Packet.h"
-#include "TestPacket.h"
 
 #if true
 bool running = false;
@@ -24,11 +23,11 @@ void OnPacketReceived(std::shared_ptr<flaw::Packet> packet) {
 }
 
 int main() {
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
+
 	try {
 		boost::asio::io_context ioContext;
-
 		boost::asio::io_context::work idleWork(ioContext);
-
 		std::thread contextThread([&ioContext]() { ioContext.run(); });
 
 		flaw::TcpClient client(ioContext);
@@ -46,22 +45,28 @@ int main() {
 			}
 		});	
 
-		client.Connect("127.0.0.1", 8080);
+		client.Connect("192.168.50.84", 8080);
 
 		while (!running) {}
 
-		A a;
-		a.c_data = 'a';
-		a.i_data = 1;
-		a.f_data = 1.0f;
+		packets::LoginRequest loginRequest;
+		loginRequest.set_username("test");
+		loginRequest.set_password("1234");
 
-		auto packet = std::make_shared<flaw::Packet>(1, PacketType::PACKET_TYPE_A, a);
+		std::cout << std::endl;
+		std::cout << "UserName : " << loginRequest.username() << " Password: " << loginRequest.password() << std::endl;
+
+		auto packet = std::make_shared<flaw::Packet>(1, 0, loginRequest);
+		for (auto c : packet->serializedData)
+			std::cout << c << " ";
+
+		client.Send(packet);
 
 		int count = 1;
 		while (running)
 		{
 			// Do something
-			client.Send(packet);
+			//client.Send(packet);
 			count++;
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 20));
 		}
@@ -75,6 +80,8 @@ int main() {
 	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
+
+	google::protobuf::ShutdownProtobufLibrary();
 
 	return 0;
 }

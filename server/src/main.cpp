@@ -4,7 +4,6 @@
 #include "TcpServer.h"
 #include "UdpServer.h"
 #include "Serialization.h"
-#include "TestPacket.h"
 
 #if true
 std::shared_ptr<flaw::TcpServer> server;
@@ -18,20 +17,26 @@ void OnSessionEnd(int sessionID) {
 }
 
 void OnPacketReceived(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-	if(packet->header.packetId == PacketType::PACKET_TYPE_A) {
-		A a = packet->GetData<A>();
-		std::cout << "Packet received: " << a.c_data << " " << a.i_data << " " << a.f_data << std::endl;
+	if(packet->header.packetId == 0) {
+		packets::LoginRequest a;
+		packet->GetData<packets::LoginRequest>(a);
+
+		for(auto c : packet->serializedData)
+			std::cout << c << " ";
+		std::cout << std::endl;
+
+		std::cout << "Packet received: " << a.username() << " " << a.password() << std::endl;
 	}
 
-	server->Send(sessionID, packet);
+	//server->Send(sessionID, packet);
 }
 
 int main() {
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
+
 	try {
 		boost::asio::io_context ioContext;
-
 		boost::asio::io_context::work idleWork(ioContext);
-
 		std::thread contextThread([&ioContext]() { ioContext.run(); });
 
 		server = std::make_shared<flaw::TcpServer>(ioContext);
@@ -54,6 +59,7 @@ int main() {
 		server->StartListen("127.0.0.1", 8080);
 		server->StartAccept();
 
+		std::cout << "Server started" << std::endl;
 		while (running)
 		{
 			// Do something
@@ -68,6 +74,8 @@ int main() {
 	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
+
+	google::protobuf::ShutdownProtobufLibrary();
 
 	return 0;
 }
