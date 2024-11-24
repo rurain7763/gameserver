@@ -26,8 +26,9 @@ target_compile_definitions(common
 
 if(WIN32) 
     target_include_directories(common
-        PRIVATE ${BOOST_INCLUDEDIR}D
+        PRIVATE ${BOOST_INCLUDEDIR}
         PRIVATE ../packets/include
+        PRIVATE ../vendor/msgpack-c/include
         PRIVATE include
     )
 

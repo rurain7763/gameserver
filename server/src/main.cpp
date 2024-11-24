@@ -6,6 +6,12 @@
 #include "Serialization.h"
 
 #if true
+struct LoginData {
+	std::string username;
+	std::string password;
+	MSGPACK_DEFINE(username, password);
+};
+
 std::shared_ptr<flaw::TcpServer> server;
 
 void OnSessionStart(int sessionID) {
@@ -18,22 +24,16 @@ void OnSessionEnd(int sessionID) {
 
 void OnPacketReceived(int sessionID, std::shared_ptr<flaw::Packet> packet) {
 	if(packet->header.packetId == 0) {
-		packets::LoginRequest a;
-		packet->GetData<packets::LoginRequest>(a);
+		LoginData src;
+		packet->GetData(src);
 
-		for(auto c : packet->serializedData)
-			std::cout << c << " ";
-		std::cout << std::endl;
-
-		std::cout << "Packet received: " << a.username() << " " << a.password() << std::endl;
+		std::cout << "Packet received: " << src.username << src.password << std::endl;
 	}
 
 	//server->Send(sessionID, packet);
 }
 
 int main() {
-	GOOGLE_PROTOBUF_VERIFY_VERSION;
-
 	try {
 		boost::asio::io_context ioContext;
 		boost::asio::io_context::work idleWork(ioContext);
@@ -74,8 +74,6 @@ int main() {
 	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
-
-	google::protobuf::ShutdownProtobufLibrary();
 
 	return 0;
 }

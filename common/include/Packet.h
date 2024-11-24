@@ -6,7 +6,6 @@
 
 #include "Global.h"
 #include "Serialization.h"
-#include "packets.pb.h"
 
 namespace flaw {
 	#pragma pack(push, 1)

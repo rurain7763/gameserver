@@ -4,13 +4,12 @@ project(client VERSION 1.0 LANGUAGES CXX)
 
 add_executable(client
     src/main.cpp
-    ../packets/src/packets.pb.cc
 )
 
 if(WIN32)
     target_include_directories(client
         PRIVATE ../common/include
-        PRIVATE ../packets/include
+        PRIVATE ../vendor/msgpack-c/include
     )
 
     target_link_directories(client
@@ -42,9 +41,4 @@ endif()
 
 target_link_libraries(client
     common
-    libprotobuf
-    absl::base
-    absl::strings
-    absl::status
-    absl::synchronization
 )
