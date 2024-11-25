@@ -30,30 +30,41 @@ namespace flaw {
 				std::ostream os(&_recvBufferStream);
 				os.write(&_recvBuffer[0], bytesTransferred);
 
-				const size_t streamSize = _recvBufferStream.size();
+				while (true) {
+					size_t streamSize = _recvBufferStream.size();
+					const char* data = boost::asio::buffer_cast<const char*>(_recvBufferStream.data());
 
-				int offset = 0;
-				const char* data = boost::asio::buffer_cast<const char*>(_recvBufferStream.data());
+					int offset = 0;
 
-				if (_currentPacket->header.packetSize == 0) {
-					if (streamSize < sizeof(PacketHeader)) {
-						std::cout << "Not enough data for header\n";
-						StartRecv();
-						return;
+					// handle packet header
+					if (_currentPacket->header.packetSize == 0) {
+						if (streamSize < sizeof(PacketHeader)) {
+							std::cout << "Not enough data for header\n";
+							break;
+						}
+
+						_currentPacket->SetHeaderBE(data, offset);
+
+						if (streamSize - offset < _currentPacket->GetSerializedSize()) {
+							std::cout << "Not enough data for packet\n";
+							_recvBufferStream.consume(offset);
+							break;
+						}
 					}
-					
-					_currentPacket->SetHeaderBE(data, offset);
-				}
 
-				if (streamSize < _currentPacket->GetSerializedSize()) {
-					std::cout << "Not enough data for packet\n";
-					StartRecv();
-					return;
+					// handle packet data
+					if (streamSize - offset < _currentPacket->GetSerializedSize()) {
+						std::cout << "Not enough data for packet\n";
+						break;
+					}
+
+					_currentPacket->SetSerializedData(data, offset);
+					_cbOnPacketReceived(self, _currentPacket);
+
+					// consume data
+					_recvBufferStream.consume(offset);
+					_currentPacket->header.packetSize = 0;
 				}
-				
-				_currentPacket->SetSerializedData(data, offset);
-				_cbOnPacketReceived(self, _currentPacket);
-				_currentPacket->header.packetSize = 0;
 
 				StartRecv();
 			}
@@ -65,8 +76,26 @@ namespace flaw {
 			std::lock_guard<std::mutex> lock(_sendMutex);
 
 			std::ostream os(&_sendBufferStream);
-			packet->GetData(os);
+			packet->GetPacketRaw(os);
 			
+			if (_isSending) {
+				return;
+			}
+			_isSending = true;
+		}
+
+		HandleSend();
+	}
+
+	void Session::StartSend(const std::vector<std::shared_ptr<Packet>>& packets) {
+		{
+			std::lock_guard<std::mutex> lock(_sendMutex);
+
+			for (const auto& packet : packets) {
+				std::ostream os(&_sendBufferStream);
+				packet->GetPacketRaw(os);
+			}
+
 			if (_isSending) {
 				return;
 			}

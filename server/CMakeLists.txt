@@ -8,6 +8,7 @@ add_executable(server
 
 if(WIN32)
     target_include_directories(server
+        PRIVATE ${BOOST_INCLUDEDIR}
         PRIVATE ../common/include
         PRIVATE ../vendor/msgpack-c/include
     )
@@ -15,15 +16,6 @@ if(WIN32)
     target_link_directories(server
 		PRIVATE ${VCPKG_INSTALLED}/lib
 	)
-
-    # boost_serialization으로 시작하는 DLL 파일 복사
-    file(GLOB BOOST_DLLS "${VCPKG_INSTALLED}/bin/boost_serialization*.dll")
-    foreach(BOOST_DLL ${BOOST_DLLS})
-        add_custom_command(TARGET server POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${BOOST_DLL}
-            $<TARGET_FILE_DIR:server>)
-    endforeach()
 
     # common DLL 파일 복사
     add_custom_command(TARGET server POST_BUILD

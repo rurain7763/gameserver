@@ -14,7 +14,7 @@ if(WIN32)
     set(VCPKG_INSTALLED "${VCPKG_DIR}/installed/x64-windows")
 
     # vcpkg를 통해 Boost 설치
-    execute_process(COMMAND ${CMAKE_SOURCE_DIR}/vcpkg/vcpkg install boost-asio boost-serialization
+    execute_process(COMMAND ${CMAKE_SOURCE_DIR}/vcpkg/vcpkg install boost-asio
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/vcpkg)
 
     set(BOOST_INCLUDEDIR "${VCPKG_INSTALLED}/include")
@@ -26,15 +26,8 @@ if(WIN32)
     set(Protobuf_INCLUDE_DIR "${VCPKG_INSTALLED}/include")
     set(PROTOBUF_LIBRARY "${VCPKG_INSTALLED}/lib")
 
-    # vcpkg를 통해 abseil 설치
-    execute_process(COMMAND ${CMAKE_SOURCE_DIR}/vcpkg/vcpkg install abseil
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/vcpkg)
-
     set(ABSL_INCLUDE_DIR "${VCPKG_INSTALLED}/include")
     set(ABSL_LIBRARY_DIR "${VCPKG_INSTALLED}/lib")
-
-    # Abseil 라이브러리 경로 설정
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "${VCPKG_INSTALLED}/share/absl")
 
 elseif(APPLE)
     set(BREW_DIR "" CACHE PATH "Path to Homebrew directory")
@@ -54,7 +47,6 @@ endif()
 
 find_package(Protobuf REQUIRED)
 find_package(Boost 1.86.0 REQUIRED COMPONENTS serialization)
-find_package(absl REQUIRED)
 
 # 하위 디렉토리 추가
 add_subdirectory(common)

@@ -48,7 +48,7 @@ namespace flaw {
 			Serialization::Deserialize<T>(serializedData, data);
 		}
 
-		void GetData(std::ostream& os) const;
+		void GetPacketRaw(std::ostream& os) const;
 
 		Packet& operator=(const Packet& other) {
 			header = other.header;

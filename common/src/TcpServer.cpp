@@ -8,7 +8,7 @@ namespace flaw {
 	{
 	}
 
-	void TcpServer::StartListen(const std::string ip, const short port) {
+	void TcpServer::Bind(const std::string ip, const short port) {
 		boost::asio::ip::tcp::endpoint endpoint;
 
 		if (ip.find(":") != std::string::npos) {
@@ -28,6 +28,9 @@ namespace flaw {
 		_acceptor.set_option(boost::asio::ip::tcp::no_delay(true));
 		_acceptor.set_option(boost::asio::socket_base::keep_alive(true));
 		_acceptor.bind(endpoint);
+	}
+
+	void TcpServer::StartListen() {
 		_acceptor.listen();
 	}
 
@@ -90,6 +93,22 @@ namespace flaw {
 		session->StartSend(packet);
 	}
 
+	void TcpServer::Send(int sessionID, const std::vector<std::shared_ptr<Packet>>& packets) {
+		std::shared_ptr<Session> session = nullptr;
+
+		{
+			std::lock_guard<std::mutex> lock(_sessionMutex);
+			auto it = _sessions.find(sessionID);
+			if (it == _sessions.end()) {
+				return;
+			}
+
+			session = it->second;
+		}
+
+		session->StartSend(packets);
+	}
+
 	int TcpServer::GetAvailableSessionID() {
 		if (_sessionIDPool.empty()) {
 			return _sessionIDCounter++;
@@ -129,7 +148,7 @@ namespace flaw {
 		std::shared_ptr<Packet> sharedPacket(poolPacket, [this](Packet* packet) {
 			std::lock_guard<std::mutex> lock(_packetPoolMutex);
 			_packetPool.Release(packet);
-			});
+		});
 
 		_cbOnPacketReceived(session->GetSessionID(), sharedPacket);
 	}

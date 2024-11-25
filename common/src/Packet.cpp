@@ -35,7 +35,7 @@ namespace flaw {
 		offset += serializedSize;
 	}
 
-	void Packet::GetData(std::ostream& os) const {
+	void Packet::GetPacketRaw(std::ostream& os) const {
 		os.write(reinterpret_cast<const char*>(&header), sizeof(PacketHeader));
 		os.write(serializedData.data(), serializedData.size());
 	}	

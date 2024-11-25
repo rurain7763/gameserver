@@ -16,6 +16,7 @@ namespace flaw {
 
 		void StartRecv();
 		void StartSend(std::shared_ptr<Packet> packet);
+		void StartSend(const std::vector<std::shared_ptr<Packet>>& packets);
 
 		void Close();
 

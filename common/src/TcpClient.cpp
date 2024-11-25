@@ -52,6 +52,10 @@ namespace flaw {
 		_session->StartSend(packet);
 	}
 
+	void TcpClient::Send(const std::vector<std::shared_ptr<Packet>>& packets) {
+		_session->StartSend(packets);
+	}
+
 	void TcpClient::OnSessionEnd(std::shared_ptr<Session> session) {
 		_cbOnSessionEnd();
 	}

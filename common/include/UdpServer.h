@@ -4,6 +4,8 @@
 #include <boost/asio.hpp>
 
 #include "Global.h"
+#include "ObjectPool.h"
+#include "Packet.h"
 
 namespace flaw {
 	struct FLAW_API Peer {
@@ -34,14 +36,14 @@ namespace flaw {
 		void Bind(const std::string& ip, const short port);
 
 		void StartRecv();
-		void Send(const Peer& endpoint, const char* buffer, size_t size);
+		void Send(const Peer& endpoint, std::shared_ptr<Packet> packet);
 
-		inline void SetOnPacketReceived(std::function<void(const Peer&, const char*, size_t)> cb) { _cbOnPacketReceived = cb; }
+		inline void SetOnPacketReceived(std::function<void(Peer&, std::shared_ptr<Packet>)> cb) { _cbOnPacketReceived = cb; }
 
 	private:
 		void _StartRecv();
 
-		void OnPacketReceived(const Peer& endpoint, const char* data, size_t size);
+		void OnPacketReceived();
 
 		void HandleError(const boost::system::error_code& error);
 
@@ -49,10 +51,17 @@ namespace flaw {
 		boost::asio::ip::udp::socket _socket;
 		boost::asio::ip::udp::endpoint _lastEndpoint;
 
+		std::mutex _packetPoolMutex;
+		ObjectPool<Packet> _packetPool;
+
 		bool _isReceiving;
+		std::unique_ptr<Packet> _currentPacket;
 		std::vector<char> _recvBuffer;
 
-		std::function<void(const Peer&, const char*, size_t)> _cbOnPacketReceived;
+		std::mutex _sendBufferStreamMutex;
+		boost::asio::streambuf _sendBufferStream;
+
+		std::function<void(Peer&, std::shared_ptr<Packet>)> _cbOnPacketReceived;
 	};
 }
 

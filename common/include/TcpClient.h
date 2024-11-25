@@ -18,6 +18,7 @@ namespace flaw {
 		void Disconnect();
 
 		void Send(std::shared_ptr<Packet> packet);
+		void Send(const std::vector<std::shared_ptr<Packet>>& packets);
 
 		inline void SetOnSessionStart(std::function<void()> cb) { _cbOnSessionStart = cb; }
 		inline void SetOnSessionEnd(std::function<void()> cb) { _cbOnSessionEnd = cb; }

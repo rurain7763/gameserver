@@ -4,7 +4,11 @@
 
 namespace flaw {
 	UdpServer::UdpServer(boost::asio::io_context& ioContext)
-		: _socket(ioContext), _isReceiving(false), _recvBuffer(1024)
+		:	_socket(ioContext), 
+			_packetPool(100), 
+			_currentPacket(std::make_unique<Packet>()),
+			_isReceiving(false), 
+			_recvBuffer(1024)
 	{
 	}
 
@@ -44,27 +48,73 @@ namespace flaw {
 					return;
 				}
 
-				OnPacketReceived({ _lastEndpoint }, _recvBuffer.data(), bytesTransferred);
+				int offset = 0;
+				_currentPacket->header.packetSize = 0;
+
+				if (bytesTransferred < sizeof(PacketHeader)) {
+					std::cout << "Not enough data for header\n";
+					StartRecv();
+					return;
+				}
+
+				_currentPacket->SetHeaderBE(_recvBuffer.data(), offset);
+
+				if (bytesTransferred < _currentPacket->GetSerializedSize()) {
+					std::cout << "Not enough data for packet\n";
+					StartRecv();
+					return;
+				}
+
+				_currentPacket->SetSerializedData(_recvBuffer.data(), offset);
+				OnPacketReceived();
+
 				_StartRecv();
 			}
 		);
 	}
 
-	void UdpServer::Send(const Peer& endpoint, const char* buffer, size_t size) {
+	void UdpServer::Send(const Peer& endpoint, std::shared_ptr<Packet> packet) {
+		{
+			std::lock_guard<std::mutex> lock(_sendBufferStreamMutex);
+			std::ostream os(&_sendBufferStream);
+			packet->GetPacketRaw(os);
+		}
+
 		_socket.async_send_to(
-			boost::asio::buffer(buffer, size),
+			_sendBufferStream.data(),
 			endpoint.endpoint,
 			[this](const boost::system::error_code& error, size_t bytesTransferred) {
 				if (error) {
 					HandleError(error);
 					return;
 				}
+
+				std::cout << "Sent " << bytesTransferred << " bytes\n";
+
+				{
+					std::lock_guard<std::mutex> lock(_sendBufferStreamMutex);
+					_sendBufferStream.consume(bytesTransferred);
+				}
 			}
 		);
 	}
 
-	void UdpServer::OnPacketReceived(const Peer& endpoint, const char* data, size_t size) {
-		_cbOnPacketReceived(endpoint, data, size);
+	void UdpServer::OnPacketReceived() {
+		Packet* poolPacket = nullptr;
+
+		{
+			std::lock_guard<std::mutex> lock(_packetPoolMutex);
+			poolPacket = _packetPool.Get();
+		}
+
+		*poolPacket = std::move(*_currentPacket);
+
+		std::shared_ptr<Packet> packet(poolPacket, [this](Packet* packet) {
+			std::lock_guard<std::mutex> lock(_packetPoolMutex);
+			_packetPool.Release(packet);
+		});
+
+		_cbOnPacketReceived(Peer{ _lastEndpoint }, packet);
 	}
 
 	void UdpServer::HandleError(const boost::system::error_code& error) {

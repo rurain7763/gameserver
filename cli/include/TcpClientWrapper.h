@@ -2,65 +2,71 @@
 #define TCP_CLIENT_WRAPPER_H
 
 #include "TcpClient.h"
-#include "PacketWrapper.h"
 #include <msclr/marshal_cppstd.h>
+#include <msclr/gcroot.h>
 #include <functional>
+#include <vcclr.h>
 
 using namespace System;
 using namespace System::Runtime::InteropServices;
 
+public delegate void OnConnectDelegate();
+
 namespace CLIWrapper {
-    public ref class TcpClientWrapper {
-    private:
-        flaw::TcpClient* tcpClient;
-
-        static boost::asio::io_context* ioContext;
-        static std::thread* contextThread;
-
-        static Action^ onSessionStartCallback;
-        static Action^ onSessionEndCallback;
-        static Action<PacketWrapper^>^ onPacketReceivedCallback;
-
-        static void RunIoContextStatic() {
-            ioContext->run();
-        }
-
-        static void OnSessionStart() {
-            if (onSessionStartCallback != nullptr) {
-                onSessionStartCallback->Invoke();
-            }
-        }
-
-        static void OnSessionEnd() {
-            if (onSessionEndCallback != nullptr) {
-                onSessionEndCallback->Invoke();
-            }
-        }
-
-        static void OnPacketReceived(std::shared_ptr<flaw::Packet> packet) {
-            if (onPacketReceivedCallback != nullptr) {     
-                array<Byte>^ arr = gcnew array<Byte>(packet->serializedData.size());
-                Marshal::Copy(IntPtr(const_cast<char*>(packet->serializedData.data())), arr, 0, packet->serializedData.size());
-
-                auto packetWrapper = gcnew PacketWrapper(
-                    packet->header.senderId, 
-                    packet->header.packetId, 
-                    arr
-                );
-
-                onPacketReceivedCallback->Invoke(packetWrapper);
-            }
-        }
-
+    class OnConnectWrapper {
     public:
-        TcpClientWrapper() {
-            if (ioContext == nullptr) {
-                ioContext = new boost::asio::io_context();
-                boost::asio::io_context::work idleWork(*ioContext);
-                contextThread = new std::thread(RunIoContextStatic);
-            }
+        gcroot<Action^> _onConnect;
 
-            tcpClient = new flaw::TcpClient(*ioContext);
+        OnConnectWrapper(Action^ onConnect) {
+			_onConnect = onConnect;
+		}
+
+        void operator()() {
+			_onConnect->Invoke();
+		}
+    };
+
+    class OnDisconnectWrapper {
+    public:
+        gcroot<Action^> _onDisconnect;
+
+        OnDisconnectWrapper(Action^ onDisconnect) {
+            _onDisconnect = onDisconnect;
+        }
+
+        void operator()() {
+			_onDisconnect->Invoke();
+		}
+	};
+
+    class OnPacketReceivedWrapper {
+    public:
+        int clientID;
+
+        // _1 : clientID, _2 : senderID, _3 : packetID, _4 : rawData
+        gcroot<Action<int, int, short, array<Byte>^>^> _onPacketReceived;
+
+        OnPacketReceivedWrapper(int clientID, Action<int, int, short, array<Byte>^>^ onPacketReceived) {
+            this->clientID = clientID;
+            _onPacketReceived = onPacketReceived;
+        }
+
+        void operator()(std::shared_ptr<flaw::Packet> packet) {
+			array<Byte>^ data = gcnew array<Byte>(packet->serializedData.size());
+			Marshal::Copy(IntPtr((void*)packet->serializedData.data()), data, 0, packet->serializedData.size());
+			_onPacketReceived->Invoke(clientID, packet->header.senderId, packet->header.packetId, data);
+		}
+    };
+
+    public ref class TcpClientWrapper {
+    public:
+        TcpClientWrapper(int clientID) {
+            _clientID = clientID;
+            _ioContext = new boost::asio::io_context();
+            boost::asio::io_context::work idleWork(*_ioContext);
+            System::Threading::ThreadStart^ threadStart = gcnew System::Threading::ThreadStart(this, &TcpClientWrapper::RunIOContext);
+            _contextThread = gcnew System::Threading::Thread(threadStart);
+            _client = new flaw::TcpClient(*_ioContext);
         }
 
         ~TcpClientWrapper() {
@@ -68,38 +74,52 @@ namespace CLIWrapper {
         }
 
         !TcpClientWrapper() {
-            tcpClient->Disconnect();
-            ioContext->stop();
-            contextThread->join();
+            _ioContext->stop();
 
-            delete tcpClient;
-            delete contextThread;
-            delete ioContext;
+            delete _client;
+            delete _ioContext;
         }
 
-        void Connect(String^ ip, short port) {
-            std::string nativeIp = msclr::interop::marshal_as<std::string>(ip);
-            tcpClient->Connect(nativeIp, port);
+        void Connect(String^ ipAddress, int port) {
+            std::string nativeIp = msclr::interop::marshal_as<std::string>(ipAddress);
+            _client->Connect(nativeIp, port);
         }
 
-        void Send(PacketWrapper^ packetWrapper) {
-            tcpClient->Send(std::shared_ptr<flaw::Packet>(packetWrapper->GetPacket()));
+        void Disconnect() {
+			_client->Disconnect();
+		}
+
+        void SetOnConnect(Action^ onConnect) {
+            _client->SetOnSessionStart(OnConnectWrapper(onConnect));
         }
 
-        void SetOnSessionStart(Action^ callback) {
-            onSessionStartCallback = callback;
-            tcpClient->SetOnSessionStart(TcpClientWrapper::OnSessionStart);
+        void SetOnDisconnect(Action^ onDisconnect) {
+			_client->SetOnSessionEnd(OnDisconnectWrapper(onDisconnect));
+		}
+
+        void SetOnPacketReceived(Action<int, int, short, array<Byte>^>^ onPacketReceived) {
+			_client->SetOnPacketReceived(OnPacketReceivedWrapper(_clientID, onPacketReceived));
+		}
+
+        void Send(short packetId, array<Byte>^ data) {
+            std::vector<char> rawData(data->Length);
+            Marshal::Copy(data, 0, IntPtr(rawData.data()), data->Length);
+            // 아직 senderId는 0으로 설정
+            std::shared_ptr<flaw::Packet> packet = std::make_shared<flaw::Packet>(0, packetId, rawData);
+            _client->Send(packet);
+		}
+
+    private:
+        void RunIOContext() {
+            _ioContext->run();
         }
 
-        void SetOnSessionEnd(Action^ callback) {
-            onSessionEndCallback = callback;
-            tcpClient->SetOnSessionEnd(TcpClientWrapper::OnSessionEnd);
-        }
+    public:
+        int _clientID;
 
-        void SetOnPacketReceived(Action<PacketWrapper^>^ callback) {
-            onPacketReceivedCallback = callback;
-            tcpClient->SetOnPacketReceived(std::bind(TcpClientWrapper::OnPacketReceived, std::placeholders::_1));
-        }
+        flaw::TcpClient* _client;
+        boost::asio::io_context* _ioContext;
+        System::Threading::Thread^ _contextThread;
     };
 }
 

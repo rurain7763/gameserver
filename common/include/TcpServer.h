@@ -16,12 +16,14 @@ namespace flaw {
 	public:
 		TcpServer(boost::asio::io_context& ioContext);
 
-		void StartListen(const std::string ip, const short port);
+		void Bind(const std::string ip, const short port);
+		void StartListen();
 		void StartAccept();
 
 		void Shutdown();
 
 		void Send(int sessionID, std::shared_ptr<Packet> packet);
+		void Send(int sessionID, const std::vector<std::shared_ptr<Packet>>& packets);
 
 		inline void SetOnSessionStart(std::function<void(int)> cb) { _cbOnSessionStart = cb; }
 		inline void SetOnSessionEnd(std::function<void(int)> cb) { _cbOnSessionEnd = cb; }
