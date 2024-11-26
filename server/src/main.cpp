@@ -7,6 +7,7 @@
 #include "UdpServer.h"
 #include "Serialization.h"
 #include "PacketDataTypes.h"
+#include "MySql.h"
 
 class PacketQueue {
 public:
@@ -78,6 +79,9 @@ int main() {
 		boost::asio::io_context::work idleWork(ioContext);
 		std::thread contextThread([&ioContext]() { ioContext.run(); });
 
+		auto mySql = std::make_shared<flaw::MySql>();
+		mySql->Connect("192.168.50.18", "ldh", "Jjang_dong12");
+
 		tcpServer = std::make_shared<flaw::TcpServer>(ioContext);
 		tcpServer->SetOnSessionStart(OnTcpServerSessionStart);
 		tcpServer->SetOnSessionEnd(OnTcpServerSessionEnd);
@@ -97,6 +101,16 @@ int main() {
 				}
 			}
 		});
+
+		mySql->SetSchema("a");
+
+		mySql->Select<int, std::string>(
+			"id, test",
+			"user",
+			[](const int id, const std::string& password) {
+				std::cout << "id: " << id << ", password: " << password << std::endl;
+			}
+		);
 
 		tcpServer->Bind("127.0.0.1", 8080);
 		tcpServer->StartListen();
@@ -137,6 +151,7 @@ int main() {
 			}
 		}
 
+		mySql->Disconnect();
 		tcpServer->Shutdown();
 		ioContext.stop();
 

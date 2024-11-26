@@ -21,14 +21,8 @@ if(WIN32)
     )
 
     target_link_libraries(CLIWrapper
-        Boost::serialization
         common
     )
 
-    set_target_properties(CLIWrapper PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS NO
-        COMPILE_FLAGS "/clr"
-    )
+    set_target_properties(CLIWrapper PROPERTIES COMMON_LANGUAGE_RUNTIME "")
 endif()

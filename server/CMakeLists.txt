@@ -10,17 +10,25 @@ if(WIN32)
     target_include_directories(server
         PRIVATE ${BOOST_INCLUDEDIR}
         PRIVATE ../common/include
-        PRIVATE ../vendor/msgpack-c/include
+        PRIVATE ../db/include
+        PRIVATE ${VENDOR_DIR}/mysql/include/jdbc
+        PRIVATE ${VENDOR_DIR}/msgpack-c/include
     )
 
     target_link_directories(server
-		PRIVATE ${VCPKG_INSTALLED}/lib
+        PRIVATE ${BOOST_LIBRARYDIR}
 	)
 
     # common DLL 파일 복사
     add_custom_command(TARGET server POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:common>
+        $<TARGET_FILE_DIR:server>)
+
+    # db DLL 파일 복사
+    add_custom_command(TARGET server POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:db>
         $<TARGET_FILE_DIR:server>)
 
 elseif(APPLE)
@@ -33,4 +41,5 @@ endif()
 
 target_link_libraries(server
     common
+    db
 )
