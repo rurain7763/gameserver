@@ -109,6 +109,11 @@ namespace flaw {
 		session->StartSend(packets);
 	}
 
+	bool TcpServer::IsSessionExist(int sessionID) {
+		std::lock_guard<std::mutex> lock(_sessionMutex);
+		return _sessions.find(sessionID) != _sessions.end();
+	}
+
 	int TcpServer::GetAvailableSessionID() {
 		if (_sessionIDPool.empty()) {
 			return _sessionIDCounter++;

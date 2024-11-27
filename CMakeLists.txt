@@ -16,7 +16,7 @@ if(WIN32)
     set(CMAKE_TOOLCHAIN_FILE "${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake")
 
     # vcpkg를 통해 라이브러리 설치
-    execute_process(COMMAND ${CMAKE_SOURCE_DIR}/vcpkg/vcpkg install boost-asio mysql-connector-cpp
+    execute_process(COMMAND ${CMAKE_SOURCE_DIR}/vcpkg/vcpkg install boost-asio boost-charconv openssl 
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/vcpkg)
     
     set(CMAKE_TOOLCHAIN_FILE "${VCPKG_DIR}/scripts/buildsystems/vcpkg.cmake")
@@ -40,6 +40,10 @@ else()
     execute_process(COMMAND sudo apt-get install libboost-all-dev)
 
 endif()
+
+find_package(Boost REQUIRED COMPONENTS charconv)
+find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # 하위 디렉토리 추가
 add_subdirectory(common)

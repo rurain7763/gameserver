@@ -1,3 +1,6 @@
 [submodule "vendor/msgpack-c"]
 	path = vendor/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git
+[submodule "vendor/boost-mysql"]
+	path = vendor/boost-mysql
+	url = https://github.com/boostorg/mysql.git

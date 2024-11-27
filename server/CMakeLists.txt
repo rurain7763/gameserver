@@ -11,7 +11,7 @@ if(WIN32)
         PRIVATE ${BOOST_INCLUDEDIR}
         PRIVATE ../common/include
         PRIVATE ../db/include
-        PRIVATE ${VENDOR_DIR}/mysql/include/jdbc
+        PRIVATE ${VENDOR_DIR}/boost-mysql/include
         PRIVATE ${VENDOR_DIR}/msgpack-c/include
     )
 

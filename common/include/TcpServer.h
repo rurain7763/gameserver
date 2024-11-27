@@ -25,6 +25,8 @@ namespace flaw {
 		void Send(int sessionID, std::shared_ptr<Packet> packet);
 		void Send(int sessionID, const std::vector<std::shared_ptr<Packet>>& packets);
 
+		bool IsSessionExist(int sessionID);
+
 		inline void SetOnSessionStart(std::function<void(int)> cb) { _cbOnSessionStart = cb; }
 		inline void SetOnSessionEnd(std::function<void(int)> cb) { _cbOnSessionEnd = cb; }
 		inline void SetOnPacketReceived(std::function<void(int, std::shared_ptr<Packet> packet)> cb) { _cbOnPacketReceived = cb; }
