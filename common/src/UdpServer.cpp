@@ -52,7 +52,7 @@ namespace flaw {
 				_currentPacket->header.packetSize = 0;
 
 				if (bytesTransferred < sizeof(PacketHeader)) {
-					std::cout << "Not enough data for header\n";
+					// std::cout << "Not enough data for header\n";
 					StartRecv();
 					return;
 				}
@@ -60,7 +60,7 @@ namespace flaw {
 				_currentPacket->SetHeaderBE(_recvBuffer.data(), offset);
 
 				if (bytesTransferred < _currentPacket->GetSerializedSize()) {
-					std::cout << "Not enough data for packet\n";
+					// std::cout << "Not enough data for packet\n";
 					StartRecv();
 					return;
 				}
@@ -89,7 +89,7 @@ namespace flaw {
 					return;
 				}
 
-				std::cout << "Sent " << bytesTransferred << " bytes\n";
+				// std::cout << "Sent " << bytesTransferred << " bytes\n";
 
 				{
 					std::lock_guard<std::mutex> lock(_sendBufferStreamMutex);
@@ -97,6 +97,10 @@ namespace flaw {
 				}
 			}
 		);
+	}
+
+	void UdpServer::Shutdown() {
+		_socket.close();
 	}
 
 	void UdpServer::OnPacketReceived() {

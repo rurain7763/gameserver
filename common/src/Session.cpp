@@ -25,7 +25,7 @@ namespace flaw {
 					return;
 				}
 
-				std::cout << "Received " << bytesTransferred << " bytes\n";
+				// std::cout << "Received " << bytesTransferred << " bytes\n";
 				
 				std::ostream os(&_recvBufferStream);
 				os.write(&_recvBuffer[0], bytesTransferred);
@@ -39,14 +39,14 @@ namespace flaw {
 					// handle packet header
 					if (_currentPacket->header.packetSize == 0) {
 						if (streamSize < sizeof(PacketHeader)) {
-							std::cout << "Not enough data for header\n";
+							// std::cout << "Not enough data for header\n";
 							break;
 						}
 
 						_currentPacket->SetHeaderBE(data, offset);
 
 						if (streamSize - offset < _currentPacket->GetSerializedSize()) {
-							std::cout << "Not enough data for packet\n";
+							// std::cout << "Not enough data for packet\n";
 							_recvBufferStream.consume(offset);
 							break;
 						}
@@ -54,7 +54,7 @@ namespace flaw {
 
 					// handle packet data
 					if (streamSize - offset < _currentPacket->GetSerializedSize()) {
-						std::cout << "Not enough data for packet\n";
+						// std::cout << "Not enough data for packet\n";
 						break;
 					}
 
@@ -122,7 +122,7 @@ namespace flaw {
 					return;
 				}
 
-				std::cout << "Sent " << bytesTransferred << " bytes" << std::endl;
+				// std::cout << "Sent " << bytesTransferred << " bytes" << std::endl;
 
 				{
 					std::lock_guard<std::mutex> lock(_sendMutex);

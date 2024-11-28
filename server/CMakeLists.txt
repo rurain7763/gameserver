@@ -4,7 +4,9 @@ project(server VERSION 1.0 LANGUAGES CXX)
 
 add_executable(server
     src/main.cpp
+    src/LobyServer.cpp
     src/ChatServer.cpp
+    src/DatabaseServer.cpp
 )
 
 if(WIN32)

@@ -38,6 +38,8 @@ namespace flaw {
 		void StartRecv();
 		void Send(const Peer& endpoint, std::shared_ptr<Packet> packet);
 
+		void Shutdown();
+
 		inline void SetOnPacketReceived(std::function<void(Peer&, std::shared_ptr<Packet>)> cb) { _cbOnPacketReceived = cb; }
 
 	private:

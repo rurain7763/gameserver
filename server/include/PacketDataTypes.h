@@ -1,6 +1,8 @@
 #ifndef PACKETTYPES_H
 #define PACKETTYPES_H
 
+#include "Serialization.h"
+
 enum PacketId : short {
 	Login = 0,
 	Message,
@@ -18,6 +20,12 @@ enum PacketId : short {
 	LeaveRoom,
 	LeaveRoomResult,
 	RoomState,
+	GetChatServer,
+	GetChatServerResult,
+	JoinChatServer,
+	JoinChatServerResult,
+	LeaveChatServer,
+	LeaveChatServerResult,
 	SendChat,
 };
 
@@ -185,6 +193,57 @@ struct RoomStateData {
 
 MSGPACK_ADD_ENUM(RoomStateData::Type);
 
+struct GetChatServerData {
+	std::string userId;
+
+	MSGPACK_DEFINE(userId);
+};
+
+struct GetChatServerResultData {
+	std::string ip;
+	std::string port;
+
+	MSGPACK_DEFINE(ip, port);
+};
+
+struct JoinChatServerData {
+	std::string userId;
+
+	MSGPACK_DEFINE(userId);
+};
+
+struct JoinChatServerResultData {
+	enum Type : char {
+		Success = 0,
+		AlreadyJoined,
+	};
+
+	Type result;
+
+	MSGPACK_DEFINE(result);
+};
+
+MSGPACK_ADD_ENUM(JoinChatServerResultData::Type);
+
+struct LeaveChatServerData {
+	std::string userId;
+
+	MSGPACK_DEFINE(userId);
+};
+
+struct LeaveChatServerResultData {
+	enum Type : char {
+		Success = 0,
+		NotRegistered,
+	};
+
+	Type result;
+
+	MSGPACK_DEFINE(result);
+};
+
+MSGPACK_ADD_ENUM(LeaveChatServerResultData::Type);
+
 struct ChatData {
 	std::string userId;
 	std::string username;
@@ -198,7 +257,7 @@ struct SendChatData {
 	std::string receiverId;
 	std::string message;
 
-	MSGPACK_DEFINE(message);
+	MSGPACK_DEFINE(senderId, receiverId, message);
 };
 
 struct EmptyData {
