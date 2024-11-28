@@ -12,6 +12,13 @@ enum PacketId : short {
 	CreateRoom,
 	CreateRoomResult,
 	DestroyRoom,
+	DestroyRoomResult,
+	JoinRoom,
+	JoinRoomResult,
+	LeaveRoom,
+	LeaveRoomResult,
+	RoomState,
+	SendChat,
 };
 
 struct LoginData {
@@ -31,7 +38,8 @@ struct LoginResultData {
 	enum Type : char {
 		Success = 0,
 		NotFound,
-		PasswordMismatch
+		PasswordMismatch,
+		AlreadyLoggedIn
 	};
 
 	Type result;
@@ -87,7 +95,7 @@ struct CreateRoomData {
 struct CreateRoomResultData {
 	enum Type : char {
 		Success = 0,
-		AlreadyExist
+		AlreadyExist,
 	};
 
 	Type result;
@@ -103,13 +111,94 @@ struct DestroyRoomData {
 	MSGPACK_DEFINE(id);
 };
 
-struct ChatData
-{
+struct DestroyRoomResultData {
+	enum Type : char {
+		Success = 0,
+		NotExist,
+		OpponentExist
+	};
+
+	Type result;
+
+	MSGPACK_DEFINE(result);
+};
+
+MSGPACK_ADD_ENUM(DestroyRoomResultData::Type);
+
+struct JoinRoomData {
+	std::string ownerId;
+
+	MSGPACK_DEFINE(ownerId);
+};
+
+struct JoinRoomResultData {
+	enum Type : char {
+		Success = 0,
+		Full,
+		NotExisRoom,
+		NotValidOwner,
+		AlreadyJoined,
+	};
+
+	Type result;
+
+	MSGPACK_DEFINE(result);
+};
+
+MSGPACK_ADD_ENUM(JoinRoomResultData::Type);
+
+struct LeaveRoomData {
+	std::string ownerId;
+
+	MSGPACK_DEFINE(ownerId);
+};
+
+struct LeaveRoomResultData {
+	enum Type : char {
+		Success = 0,
+		NotExistRoom,
+		NotValidOwner,
+		NotJoined,
+		OpponentExist
+	};
+
+	Type result;
+
+	MSGPACK_DEFINE(result);
+};
+
+MSGPACK_ADD_ENUM(LeaveRoomResultData::Type);
+
+struct RoomStateData {
+	enum Type : char {
+		MasterOut,
+		OpponentOut,
+		OpponentJoined
+	};
+
+	Type type;
+	std::string userId;
+	std::string userName;
+
+	MSGPACK_DEFINE(type, userId, userName);
+};
+
+MSGPACK_ADD_ENUM(RoomStateData::Type);
+
+struct ChatData {
 	std::string userId;
 	std::string username;
 	std::string message;
 
 	MSGPACK_DEFINE(userId, username, message);
+};
+
+struct SendChatData {
+	std::string senderId;
+	std::string receiverId;
+	std::string message;
+
+	MSGPACK_DEFINE(message);
 };
 
 struct EmptyData {

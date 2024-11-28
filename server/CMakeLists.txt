@@ -4,6 +4,7 @@ project(server VERSION 1.0 LANGUAGES CXX)
 
 add_executable(server
     src/main.cpp
+    src/ChatServer.cpp
 )
 
 if(WIN32)
@@ -11,6 +12,7 @@ if(WIN32)
         PRIVATE ${BOOST_INCLUDEDIR}
         PRIVATE ../common/include
         PRIVATE ../db/include
+        PRIVATE include
         PRIVATE ${VENDOR_DIR}/boost-mysql/include
         PRIVATE ${VENDOR_DIR}/msgpack-c/include
     )

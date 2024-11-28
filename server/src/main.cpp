@@ -80,13 +80,16 @@ private:
 class LobyServer {
 private:
 	struct User {
+		int sessionID;
 		std::string id;
 		std::string name;
+		int joinedRoomSessionID;
 	};
 
 	struct Room {
-		std::string ownerId;
 		std::string title;
+		int ownerSessionID;
+		int opponentSessionID;
 	};
 
 public:
@@ -119,14 +122,55 @@ public:
 				_disconnectedSessions.pop();
 			}
 
-			auto it = _sessionToLoginUser.find(sessionID);
-
-			if (it != _sessionToLoginUser.end()) {
-				User& user = GetUser(sessionID);
-
-				_rooms.erase(user.id);
-				RemoveUser(sessionID);
+			std::shared_ptr<User> disconnectedUser;
+			if(!TryGetUser(sessionID, disconnectedUser)) {
+				continue;
 			}
+
+			std::shared_ptr<Room> room;
+			if (TryGetRoom(disconnectedUser->joinedRoomSessionID, room)) {
+				if (room->ownerSessionID == disconnectedUser->sessionID && room->opponentSessionID != INVALID_SESSION_ID) {
+					// disconnected user is owner
+					// room owner is disconnected so recognize to opponent
+					std::shared_ptr<flaw::Packet> packet = std::make_shared<flaw::Packet>();
+					packet->header.senderId = SERVER_ID;
+					packet->header.packetId = PacketId::RoomState;
+
+					RoomStateData roomStateData;
+					roomStateData.type = RoomStateData::Type::MasterOut;
+					roomStateData.userId = disconnectedUser->id;
+					roomStateData.userName = disconnectedUser->name;
+					packet->SetData(roomStateData);
+
+					std::shared_ptr<User> opponent;
+					if (TryGetUser(room->opponentSessionID, opponent)) {
+						opponent->joinedRoomSessionID = INVALID_SESSION_ID;
+					}
+
+					_tcpServer->Send(room->opponentSessionID, packet);
+
+					_rooms.erase(room->ownerSessionID);
+				}
+				else {
+					// disconnected user is opponent
+					// room opponent is disconnected so recognize to owner
+					std::shared_ptr<flaw::Packet> packet = std::make_shared<flaw::Packet>();
+					packet->header.senderId = SERVER_ID;
+					packet->header.packetId = PacketId::RoomState;
+
+					RoomStateData roomStateData;
+					roomStateData.type = RoomStateData::Type::OpponentOut;
+					roomStateData.userId = disconnectedUser->id;
+					roomStateData.userName = disconnectedUser->name;
+					packet->SetData(roomStateData);
+
+					room->opponentSessionID = INVALID_SESSION_ID;
+
+					_tcpServer->Send(room->ownerSessionID, packet);
+				}
+			}
+
+			RemoveUser(sessionID);
 		}
 
 		while (true) {
@@ -180,6 +224,12 @@ public:
 		else if (packet->ComparePacketId(PacketId::DestroyRoom)) {
 			AddToPacketQueue([this, sessionID, packet]() { HandleDestroyRoomPacket(sessionID, packet); });
 		}
+		else if (packet->ComparePacketId(PacketId::JoinRoom)) {
+			AddToPacketQueue([this, sessionID, packet]() { HandleJoinRoomPacket(sessionID, packet); });
+		}
+		else if (packet->ComparePacketId(PacketId::LeaveRoom)) {
+			AddToPacketQueue([this, sessionID, packet]() { HandleLeaveRoomPacket(sessionID, packet); });
+		}
 		else {
 			std::cout << "Unknown packet received" << std::endl;
 		}
@@ -192,30 +242,32 @@ private:
 	}
 
 	void HandleLoginPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
-			return;
-		}
-
 		LoginData loginData;
 		packet->GetData(loginData);
 
 		_dbServer->GetUser(loginData.id, [this, sessionID, packet, password = std::move(loginData.password)](bool success, UserData& userData) {
 			LoginResultData loginResultData;
+			packet->header.packetId = PacketId::LoginResult;
 
 			if (success) {
 				if(userData.password != password) {
 					loginResultData.result = LoginResultData::Type::PasswordMismatch;
 				}
 				else {
-					loginResultData.result = LoginResultData::Type::Success;
-					AddUser(sessionID, userData);
+					std::shared_ptr<User> exist;
+					if(TryGetUser(sessionID, exist)) {
+						loginResultData.result = LoginResultData::Type::AlreadyLoggedIn;
+					}
+					else {
+						loginResultData.result = LoginResultData::Type::Success;
+						AddUser(sessionID, userData);
+					}
 				}
 			}
 			else {
 				loginResultData.result = LoginResultData::Type::NotFound;
 			}
 
-			packet->header.packetId = PacketId::LoginResult;
 			packet->SetData(loginResultData);
 
 			_tcpServer->Send(sessionID, packet);
@@ -223,7 +275,8 @@ private:
 	}
 
 	void HandleMessagePacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
 			return;
 		}
 
@@ -234,15 +287,12 @@ private:
 	}
 
 	void HandleSignUpPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
-			return;
-		}
-
 		SignUpData signUpData;
 		packet->GetData(signUpData);
 
 		_dbServer->SignUp(signUpData.id, signUpData.password, signUpData.username, [this, sessionID, packet](bool result) {
 			SignUpResultData signUpResultData;
+			packet->header.packetId = PacketId::SignUpResult;
 
 			if (result) {
 				signUpResultData.result = true;
@@ -251,7 +301,6 @@ private:
 				signUpResultData.result = false;
 			}
 
-			packet->header.packetId = PacketId::SignUpResult;
 			packet->SetData(signUpResultData);
 
 			_tcpServer->Send(sessionID, packet);
@@ -259,7 +308,8 @@ private:
 	}
 
 	void HandleGetLobyPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
 			return;
 		}
 
@@ -267,28 +317,28 @@ private:
 		packet->GetData(emptyData);
 		
 		GetLobyResultData getLobyResultData;
+		packet->header.packetId = PacketId::GetLobyResult;
 		
+		std::shared_ptr<User> owner;
+		RoomData roomData;
 		for (auto& pair : _rooms) {
-			RoomData roomData;
-			roomData.title = pair.second.title;
-
-			User& owner = GetUser(pair.second.ownerId);
-
-			roomData.ownerId = owner.id;
-			roomData.ownerName = owner.name;
-				
-			getLobyResultData.rooms.push_back(std::move(roomData));
+			if (TryGetUser(pair.second->ownerSessionID, owner)) {
+				roomData.title = pair.second->title;
+				roomData.ownerId = owner->id;
+				roomData.ownerName = owner->name;
+				getLobyResultData.rooms.push_back(std::move(roomData));
+			}
 		}
 
-		packet->header.packetId = PacketId::GetLobyResult;
 		packet->SetData(getLobyResultData);
 
 		_tcpServer->Send(sessionID, packet);
 	}
 
 	void HandleCreateRoomPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
-			return;
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
+			return;	
 		}
 
 		CreateRoomData createRoomData;
@@ -296,17 +346,17 @@ private:
 
 		CreateRoomResultData createRoomResultData;
 
-		User& owner = GetUser(sessionID);
-
-		if (_rooms.find(owner.id) != _rooms.end()) {
+		if (_rooms.find(sessionID) != _rooms.end()) {
 			createRoomResultData.result = CreateRoomResultData::Type::AlreadyExist;
 		}
 		else {
-			Room room;
-			room.ownerId = owner.id;
-			room.title = createRoomData.title;
+			std::shared_ptr<Room> room = std::make_shared<Room>();
+			room->title = std::move(createRoomData.title);
+			room->ownerSessionID = user->sessionID;
+			room->opponentSessionID = INVALID_SESSION_ID;
 
-			_rooms[owner.id] = std::move(room);
+			user->joinedRoomSessionID = sessionID;
+			_rooms[sessionID] = std::move(room);
 			createRoomResultData.result = CreateRoomResultData::Type::Success;
 		}
 
@@ -316,39 +366,199 @@ private:
 		_tcpServer->Send(sessionID, packet);
 	}
 
-	void HandleGetChatListPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
-		if (!_tcpServer->IsSessionExist(sessionID)) {
+	void HandleDestroyRoomPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
+		std::shared_ptr<User> user;
+		if(TryGetUser(sessionID, user) == false) {
 			return;
 		}
 
-		GetChatListData getChatListData;
-		packet->GetData(getChatListData);
+		DestroyRoomResultData destroyRoomResultData;
+		packet->header.packetId = PacketId::DestroyRoomResult;
 
-		GetChatListResultData getChatListResultData;
+		std::shared_ptr<Room> room;
+		if(!TryGetRoom(sessionID, room)) {
+			destroyRoomResultData.result = DestroyRoomResultData::Type::NotExist;
+		}
+		else if(room->opponentSessionID != INVALID_SESSION_ID) {
+			destroyRoomResultData.result = DestroyRoomResultData::Type::OpponentExist;
+		}
+		else {
+			user->joinedRoomSessionID = INVALID_SESSION_ID;
+			_rooms.erase(sessionID);
+			destroyRoomResultData.result = DestroyRoomResultData::Type::Success;
+		}
+
+		packet->SetData(destroyRoomResultData);
+
+		_tcpServer->Send(sessionID, packet);
 	}
 
-	User& GetUser(int sessionID) {
-		return _loginUsers[_sessionToLoginUser[sessionID]];
+	void HandleJoinRoomPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
+			return;
+		}
+
+		JoinRoomData joinRoomData;
+		packet->GetData(joinRoomData);
+
+		JoinRoomResultData joinRoomResultData;
+		packet->header.packetId = PacketId::JoinRoomResult;
+
+		std::shared_ptr<User> roomOwner;
+		std::shared_ptr<Room> room;
+
+		if (!TryGetUser(joinRoomData.ownerId, roomOwner)) {
+			joinRoomResultData.result = JoinRoomResultData::Type::NotValidOwner;
+		}
+		else if (!TryGetRoom(roomOwner->sessionID, room)) {
+			joinRoomResultData.result = JoinRoomResultData::Type::NotExisRoom;
+		}
+		else if(room->opponentSessionID != INVALID_SESSION_ID) {
+			if(room->opponentSessionID == sessionID) {
+				joinRoomResultData.result = JoinRoomResultData::Type::AlreadyJoined;
+			}
+			else {
+				joinRoomResultData.result = JoinRoomResultData::Type::Full;
+			}
+		}
+		else {
+			user->joinedRoomSessionID = room->ownerSessionID;
+			room->opponentSessionID = sessionID;
+			joinRoomResultData.result = JoinRoomResultData::Type::Success;
+		}
+
+		packet->SetData(joinRoomResultData);
+
+		_tcpServer->Send(sessionID, packet);
+
+		if (joinRoomResultData.result == JoinRoomResultData::Type::Success) {
+			packet->header.senderId = SERVER_ID;
+			packet->header.packetId = PacketId::RoomState;
+
+			RoomStateData roomStateData;
+			roomStateData.type = RoomStateData::Type::OpponentJoined;
+			roomStateData.userId = user->id;
+			roomStateData.userName = user->name;
+			packet->SetData(roomStateData);
+
+			_tcpServer->Send(roomOwner->sessionID, packet);
+		}
 	}
 
-	User& GetUser(const std::string& id) {
-		return _loginUsers[_idToLoginUser[id]];
+	void HandleLeaveRoomPacket(int sessionID, std::shared_ptr<flaw::Packet> packet) {
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
+			return;
+		}
+
+		LeaveRoomData leaveRoomData;
+		packet->GetData(leaveRoomData);
+
+		LeaveRoomResultData leaveRoomResultData;
+		packet->header.packetId = PacketId::LeaveRoomResult;
+
+		bool isThisUserOwner = false;
+		std::shared_ptr<User> roomOwner;
+		std::shared_ptr<Room> room;
+
+		if (!TryGetUser(leaveRoomData.ownerId, roomOwner)) {
+			leaveRoomResultData.result = LeaveRoomResultData::Type::NotValidOwner;
+		}
+		else if (!TryGetRoom(roomOwner->sessionID, room)) {
+			leaveRoomResultData.result = LeaveRoomResultData::Type::NotExistRoom;
+		}
+		else if (room->ownerSessionID == sessionID) {
+			if (room->opponentSessionID != INVALID_SESSION_ID) {
+				leaveRoomResultData.result = LeaveRoomResultData::Type::OpponentExist;
+			}
+			else {
+				_rooms.erase(roomOwner->sessionID);
+				leaveRoomResultData.result = LeaveRoomResultData::Type::Success;
+				isThisUserOwner = true;
+			}
+		}
+		else if (room->opponentSessionID != sessionID) {
+			leaveRoomResultData.result = LeaveRoomResultData::Type::NotJoined;
+		}
+		else {
+			user->joinedRoomSessionID = INVALID_SESSION_ID;
+			room->opponentSessionID = INVALID_SESSION_ID;
+			leaveRoomResultData.result = LeaveRoomResultData::Type::Success;
+			isThisUserOwner = false;
+		}
+
+		packet->SetData(leaveRoomResultData);
+
+		_tcpServer->Send(sessionID, packet);
+
+		if (leaveRoomResultData.result == LeaveRoomResultData::Type::Success && !isThisUserOwner) {
+			packet->header.senderId = SERVER_ID;
+			packet->header.packetId = PacketId::RoomState;
+
+			RoomStateData roomStateData;
+			roomStateData.type = RoomStateData::Type::OpponentOut;
+			roomStateData.userId = user->id;
+			roomStateData.userName = user->name;
+
+			packet->SetData(roomStateData);
+
+			_tcpServer->Send(roomOwner->sessionID, packet);
+		}
+	}
+
+	bool TryGetUser(const int sessionID, std::shared_ptr<User>& user) {
+		auto it = _sessionToLoginUser.find(sessionID);
+		if (it == _sessionToLoginUser.end()) {
+			return false;
+		}
+		user = it->second;
+		return true;
+	}
+
+	bool TryGetUser(const std::string& id, std::shared_ptr<User>& user) {
+		auto it = _idToLoginUser.find(id);
+		if (it == _idToLoginUser.end()) {
+			return false;
+		}
+		user = it->second;
+		return true;
+	}
+
+	bool TryGetRoom(const int sessionID, std::shared_ptr<Room>& room) {
+		auto it = _rooms.find(sessionID);
+		if (it == _rooms.end()) {
+			return false;
+		}
+		room = it->second;
+		return true;
 	}
 
 	void AddUser(const int sessionID, const UserData& userData) {
-		_sessionToLoginUser[sessionID] = _loginUsers.size();
-		_idToLoginUser[userData.id] = _loginUsers.size();
-		_loginUsers.push_back(User{ userData.id, userData.username });
+		std::shared_ptr<User> user = std::make_shared<User>();
+		user->sessionID = sessionID;
+		user->id = userData.id;
+		user->name = userData.username;
+		user->joinedRoomSessionID = INVALID_SESSION_ID;
+
+		_sessionToLoginUser[sessionID] = user;
+		_idToLoginUser[userData.id] = user;
 	}
 
 	void RemoveUser(const int sessionID) {
-		int index = _sessionToLoginUser[sessionID];
+		std::shared_ptr<User> user;
+		if (!TryGetUser(sessionID, user)) {
+			return;
+		}
+		
 		_sessionToLoginUser.erase(sessionID);
-		_idToLoginUser.erase(_loginUsers[index].id);
-		_loginUsers.erase(_loginUsers.begin() + index);
+		_idToLoginUser.erase(user->id);
 	}
 
 private:
+	static const int SERVER_ID = 0;
+	static const int INVALID_SESSION_ID = -1;
+
 	std::unique_ptr<flaw::TcpServer> _tcpServer;
 	std::shared_ptr<DatabaseServer> _dbServer;
 
@@ -356,11 +566,10 @@ private:
 	std::queue<std::function<void()>> _packetQueue;
 	std::queue<int> _disconnectedSessions;
 
-	std::vector<User> _loginUsers;
-	std::unordered_map<int, int> _sessionToLoginUser;
-	std::unordered_map<std::string, int> _idToLoginUser;
+	std::unordered_map<int, std::shared_ptr<User>> _sessionToLoginUser;
+	std::unordered_map<std::string, std::shared_ptr<User>> _idToLoginUser;
 
-	std::unordered_map<std::string, Room> _rooms;
+	std::unordered_map<int, std::shared_ptr<Room>> _rooms;
 };
 #endif
 
@@ -389,6 +598,7 @@ int main() {
 		});
 
 		while (running) {
+			//ioContext.poll();
 			dbServer->Update();
 			lobyServer->Update();
 		}
