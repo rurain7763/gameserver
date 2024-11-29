@@ -50,6 +50,7 @@ namespace flaw {
 		void HandleError(const boost::system::error_code& error);
 
 	private:
+
 		boost::asio::ip::udp::socket _socket;
 		boost::asio::ip::udp::endpoint _lastEndpoint;
 
@@ -60,8 +61,8 @@ namespace flaw {
 		std::unique_ptr<Packet> _currentPacket;
 		std::vector<char> _recvBuffer;
 
-		std::mutex _sendBufferStreamMutex;
-		boost::asio::streambuf _sendBufferStream;
+		unsigned char _checkSumData[4] = { 0x01, 0x02, 0x03, 0x04 };
+		int _checkSum;
 
 		std::function<void(Peer&, std::shared_ptr<Packet>)> _cbOnPacketReceived;
 	};

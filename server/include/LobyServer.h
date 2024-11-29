@@ -1,7 +1,7 @@
 #ifndef LOBY_SERVER_H
 #define LOBY_SERVER_H
 
-#include "Config.h"
+#include "Resources.h"
 #include "TcpServer.h"
 #include "PacketDataTypes.h"
 
@@ -10,22 +10,8 @@
 class DatabaseServer;
 
 class LobyServer {
-private:
-	struct User {
-		int sessionID;
-		std::string id;
-		std::string name;
-		int joinedRoomSessionID;
-	};
-
-	struct Room {
-		std::string title;
-		int ownerSessionID;
-		int opponentSessionID;
-	};
-
 public:
-	LobyServer(Config& config, boost::asio::io_context& ioContext, std::shared_ptr<DatabaseServer>& dbServer);
+	LobyServer(Resources& resources, boost::asio::io_context& ioContext, std::shared_ptr<DatabaseServer>& dbServer);
 
 	void Start();
 	void Update();
@@ -36,6 +22,9 @@ public:
 	void OnTcpServerPacketReceived(int sessionID, std::shared_ptr<flaw::Packet> packet);
 
 private:
+	void HandleDisconnectedUser();
+	void HandlePacketQueue();
+
 	void AddToPacketQueue(std::function<void()>&& work);
 
 	void HandleLoginPacket(int sessionID, std::shared_ptr<flaw::Packet> packet);
@@ -48,30 +37,19 @@ private:
 	void HandleLeaveRoomPacket(int sessionID, std::shared_ptr<flaw::Packet> packet);
 	void HandleGetGetChatServerPacket(int sessionID, std::shared_ptr<flaw::Packet> packet);
 
-	bool TryGetUser(const int sessionID, std::shared_ptr<User>& user);
-	bool TryGetUser(const std::string& id, std::shared_ptr<User>& user);
-	bool TryGetRoom(const int sessionID, std::shared_ptr<Room>& room);
-
-	void AddUser(const int sessionID, const UserData& userData);
-	void RemoveUser(const int sessionID);
-
 private:
 	static const int SERVER_ID = 0;
-	static const int INVALID_SESSION_ID = -1;
 
-	Config& _config;
+	Resources& _resources;
 
 	std::unique_ptr<flaw::TcpServer> _tcpServer;
 	std::shared_ptr<DatabaseServer> _dbServer;
 
-	std::mutex _mutex;
+	std::mutex _packetQueueMutex;
 	std::queue<std::function<void()>> _packetQueue;
-	std::queue<int> _disconnectedSessions;
 
-	std::unordered_map<int, std::shared_ptr<User>> _sessionToLoginUser;
-	std::unordered_map<std::string, std::shared_ptr<User>> _idToLoginUser;
-
-	std::unordered_map<int, std::shared_ptr<Room>> _rooms;
+	std::mutex _disconnSessionsMutex;
+	std::queue<int> _disconnSessions;
 };
 
 #endif

@@ -18,6 +18,7 @@ add_library(common SHARED
     src/TcpClient.cpp
     src/TcpServer.cpp
     src/UdpServer.cpp
+    src/Global.cpp
 )
 
 target_compile_definitions(common 

@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-DatabaseServer::DatabaseServer(Config& config, boost::asio::io_context& ioContex) 
-	: _config(config)
+DatabaseServer::DatabaseServer(Resources& resources, boost::asio::io_context& ioContex) 
+	: _resources(resources)
 {
 	_mySql = std::make_unique<flaw::MySqlClient>(ioContex);
 	_mySql->SetOnConnect(std::bind(&DatabaseServer::OnConnect, this));
@@ -11,7 +11,8 @@ DatabaseServer::DatabaseServer(Config& config, boost::asio::io_context& ioContex
 }
 
 void DatabaseServer::Start() {
-	_mySql->Connect(_config.mysqlIp, _config.mysqlUser, _config.mysqlPassword, _config.mysqlDatabase);
+	auto& config = _resources.GetConfig();
+	_mySql->Connect(config.mysqlIp, config.mysqlUser, config.mysqlPassword, config.mysqlDatabase);
 }
 
 void DatabaseServer::Update() {

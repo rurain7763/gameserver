@@ -135,7 +135,7 @@ namespace flaw {
 
 		{
 			std::lock_guard<std::mutex> lock(_sessionMutex);
-			_sessions.erase(session->GetSessionID());
+			_sessions.erase(sessionID);
 			ReleaseSessionID(sessionID);
 		}
 	}

@@ -7,6 +7,7 @@ add_executable(server
     src/LobyServer.cpp
     src/ChatServer.cpp
     src/DatabaseServer.cpp
+    src/Resources.cpp
 )
 
 if(WIN32)

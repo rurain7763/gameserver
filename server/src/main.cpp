@@ -1,4 +1,4 @@
-#include "Config.h"
+#include "Resources.h"
 #include "LobyServer.h"
 #include "ChatServer.h"
 #include "DatabaseServer.h"
@@ -6,38 +6,18 @@
 #include <iostream>
 #include <fstream>
 
-Config ReadConfigFile()
-{
-	std::ifstream configFile("./config.txt", std::ios::in);
-	if (!configFile.is_open()) {
-		throw std::runtime_error("Failed to open config file");
-	}
-
-	Config config;
-	configFile >> config.lobyServerIp;
-	configFile >> config.lobyServerPort;
-	configFile >> config.chatServerIp;
-	configFile >> config.chatServerPort;
-	configFile >> config.mysqlIp;
-	configFile >> config.mysqlUser;
-	configFile >> config.mysqlPassword;
-	configFile >> config.mysqlDatabase;
-
-	return config;
-}
-
 int main() {
 	try {
 		boost::asio::io_context ioContext;
 		boost::asio::io_context::work idleWork(ioContext);
 		std::thread contextThread([&ioContext]() { ioContext.run(); });
 
-		// this is must be read from config file
-		Config config = ReadConfigFile();
+		Resources resources;
+		resources.LoadConfig("./config.txt");
 		
-		auto dbServer = std::make_shared<DatabaseServer>(config, ioContext);
-		auto lobyServer = std::make_shared<LobyServer>(config, ioContext, dbServer);
-		auto chatServer = std::make_shared<ChatServer>(config, ioContext);
+		auto dbServer = std::make_shared<DatabaseServer>(resources, ioContext);
+		auto lobyServer = std::make_shared<LobyServer>(resources, ioContext, dbServer);
+		auto chatServer = std::make_shared<ChatServer>(resources, ioContext);
 
 		bool running = true;
 
@@ -56,9 +36,9 @@ int main() {
 		});
 
 		while (running) {
-			dbServer->Update();
-			lobyServer->Update();
 			chatServer->Update();
+			lobyServer->Update();
+			dbServer->Update();
 		}
 
 		lobyServer->Shutdown();

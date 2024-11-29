@@ -3,6 +3,7 @@
 
 #include "Serialization.h"
 
+// packet id must be 0 ~ SHRT_MAX
 enum PacketId : short {
 	Login = 0,
 	Message,
@@ -27,6 +28,7 @@ enum PacketId : short {
 	LeaveChatServer,
 	LeaveChatServerResult,
 	SendChat,
+	RecvChat,
 };
 
 struct LoginData {
@@ -123,7 +125,8 @@ struct DestroyRoomResultData {
 	enum Type : char {
 		Success = 0,
 		NotExist,
-		OpponentExist
+		OpponentExist,
+		NotOwner
 	};
 
 	Type result;
@@ -201,7 +204,7 @@ struct GetChatServerData {
 
 struct GetChatServerResultData {
 	std::string ip;
-	std::string port;
+	short port;
 
 	MSGPACK_DEFINE(ip, port);
 };
@@ -234,7 +237,7 @@ struct LeaveChatServerData {
 struct LeaveChatServerResultData {
 	enum Type : char {
 		Success = 0,
-		NotRegistered,
+		NotJoined,
 	};
 
 	Type result;
@@ -244,20 +247,20 @@ struct LeaveChatServerResultData {
 
 MSGPACK_ADD_ENUM(LeaveChatServerResultData::Type);
 
-struct ChatData {
-	std::string userId;
-	std::string username;
-	std::string message;
-
-	MSGPACK_DEFINE(userId, username, message);
-};
-
 struct SendChatData {
 	std::string senderId;
 	std::string receiverId;
 	std::string message;
 
 	MSGPACK_DEFINE(senderId, receiverId, message);
+};
+
+struct RecvChatData {
+	std::string userId;
+	std::string username;
+	std::string message;
+
+	MSGPACK_DEFINE(userId, username, message);
 };
 
 struct EmptyData {

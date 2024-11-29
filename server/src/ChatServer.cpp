@@ -3,16 +3,22 @@
 
 #include <iostream>
 
-ChatServer::ChatServer(Config& config, boost::asio::io_context& ioContext) 
-	: _config(config) 
+ChatServer::ChatServer(Resources& resources, boost::asio::io_context& ioContext) 
+	: _resources(resources)
 {
 	_udpServer = std::make_unique<flaw::UdpServer>(ioContext);
 	_udpServer->SetOnPacketReceived(std::bind(&ChatServer::OnPacketReceived, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void ChatServer::Start() {
-	_udpServer->Bind(_config.chatServerIp, _config.chatServerPort);
+	auto& config = _resources.GetConfig();
+
+	_resources.GetEventBus().Subscribe<ChatServer, UserLogoutEvent>(this, &ChatServer::OnUserLogout);
+
+	_udpServer->Bind(config.chatServerIp, config.chatServerPort);
 	_udpServer->StartRecv();
+
+	std::cout << "Chat server started" << std::endl;
 }
 
 void ChatServer::Update() {
@@ -35,6 +41,14 @@ void ChatServer::Update() {
 
 void ChatServer::Shutdown() {
 	_udpServer->Shutdown();
+}
+
+void ChatServer::OnUserLogout(UserLogoutEvent& evn) {
+	std::shared_ptr<flaw::Peer> peer;
+	if (TryGetPeer(evn.user->id, peer)) {
+		_peers.erase(evn.user->id);
+		std::cout << "[Chat server] Peer left: " << evn.user->id << std::endl;
+	}
 }
 
 void ChatServer::AddToPacketQueue(std::function<void()>&& work) {
@@ -67,6 +81,7 @@ void ChatServer::HandleJoinChatServerPacket(flaw::Peer& peer, std::shared_ptr<fl
 	if (!TryGetPeer(joinChatServerData.userId, exist)) {
 		_peers[joinChatServerData.userId] = std::make_shared<flaw::Peer>(std::move(peer));
 		joinChatServerResultData.result = JoinChatServerResultData::Success;
+		exist = _peers[joinChatServerData.userId];
 		std::cout << "Peer joined: " << joinChatServerData.userId << std::endl;
 	}
 	else {
@@ -76,7 +91,7 @@ void ChatServer::HandleJoinChatServerPacket(flaw::Peer& peer, std::shared_ptr<fl
 	packet->header.packetId = PacketId::JoinChatServerResult;
 	packet->SetData(joinChatServerResultData);
 
-	_udpServer->Send(peer, packet);
+	_udpServer->Send(*exist, packet);
 }
 
 void ChatServer::HandleLeaveChatServerPacket(flaw::Peer& peer, std::shared_ptr<flaw::Packet> packet) {
@@ -92,21 +107,35 @@ void ChatServer::HandleLeaveChatServerPacket(flaw::Peer& peer, std::shared_ptr<f
 		std::cout << "Peer left: " << leaveChatServerData.userId << std::endl;
 	}
 	else {
-		leaveChatServerResultData.result = LeaveChatServerResultData::NotRegistered;
+		leaveChatServerResultData.result = LeaveChatServerResultData::NotJoined;
 	}
 
 	packet->header.packetId = PacketId::LeaveChatServerResult;
 	packet->SetData(leaveChatServerResultData);
 
-	_udpServer->Send(peer, packet);
+	_udpServer->Send(*exist, packet);
 }
 
 void ChatServer::HandleSendChatPacket(flaw::Peer& peer, std::shared_ptr<flaw::Packet> packet) {
 	SendChatData sendChatData;
 	packet->GetData(sendChatData);
 
+	std::shared_ptr<User> user;
+	if (!_resources.TryGetUser(sendChatData.senderId, user)) {
+		return;
+	}
+
 	std::shared_ptr<flaw::Peer> exist;
 	if (TryGetPeer(sendChatData.receiverId, exist)) {
+		RecvChatData recvChatData;
+		recvChatData.userId = std::move(sendChatData.senderId);
+		recvChatData.username = user->name;
+		recvChatData.message = std::move(sendChatData.message);
+		
+		packet->header.senderId = SERVER_ID;
+		packet->header.packetId = PacketId::RecvChat;
+		packet->SetData(recvChatData);
+
 		_udpServer->Send(*exist, packet);
 		std::cout << "Chat sent: " << sendChatData.senderId << " -> " << sendChatData.receiverId << std::endl;
 	}

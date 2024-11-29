@@ -37,6 +37,7 @@ namespace flaw {
 
 		void SetHeaderBE(const char* data, int& offset);
 		void SetSerializedData(const char* data, int& offset);
+		bool TrySetSerializedData(const char* data, int& offset);
 
 		template <typename T>
 		void SetData(const T& data) {
@@ -70,6 +71,8 @@ namespace flaw {
 
 		inline int GetSerializedSize() const { return header.packetSize - sizeof(PacketHeader); }
 		inline bool ComparePacketId(short packetId) const { return header.packetId == packetId; }
+
+		static bool IsValidPacketId(short packetId);
 	};
 	#pragma pack(pop)
 }

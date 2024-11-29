@@ -15,4 +15,11 @@
 	#endif
 #endif
 
+namespace flaw {
+	class Utils {
+	public:
+		static unsigned char GetCheckSum(const unsigned char* data, int length);
+	};
+}
+
 #endif

@@ -30,6 +30,25 @@ namespace flaw {
 			msgpack::object deserialized = oh.get();
             deserialized.convert(result);
         }
+
+        template <typename T>
+        static bool TryDeserialize(const std::vector<char>& data, T& result) {
+            if (data.empty()) {
+                return false;
+            }
+
+            try {
+                msgpack::object_handle oh = msgpack::unpack(data.data(), data.size());
+                msgpack::object deserialized = oh.get();
+                deserialized.convert(result);
+                return true;
+            }
+            catch (const msgpack::type_error& e) {
+                // 타입 변환 실패
+                std::cerr << "Type conversion error: " << e.what() << std::endl;
+                return false;
+            }
+        }
     };
 }
 

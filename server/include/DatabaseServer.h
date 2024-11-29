@@ -1,13 +1,13 @@
 #ifndef DATABASE_SERVER_H
 #define DATABASE_SERVER_H
 
-#include "Config.h"
+#include "Resources.h"
 #include "MySqlClient.h"
 #include "PacketDataTypes.h"
 
 class DatabaseServer {
 public:
-	DatabaseServer(Config& config, boost::asio::io_context& ioContex);
+	DatabaseServer(Resources& resources, boost::asio::io_context& ioContex);
 
 	void Start();
 	void Update();
@@ -27,7 +27,7 @@ public:
 		std::function<void(bool)> callback);
 
 private:
-	Config& _config;
+	Resources& _resources;
 
 	std::unique_ptr<flaw::MySqlClient> _mySql;
 };

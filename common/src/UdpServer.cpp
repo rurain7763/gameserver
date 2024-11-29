@@ -8,7 +8,8 @@ namespace flaw {
 			_packetPool(100), 
 			_currentPacket(std::make_unique<Packet>()),
 			_isReceiving(false), 
-			_recvBuffer(1024)
+			_recvBuffer(1024),
+			_checkSum(0)
 	{
 	}
 
@@ -34,6 +35,9 @@ namespace flaw {
 	void UdpServer::StartRecv() {
 		if (!_isReceiving) {
 			_isReceiving = true;
+
+			_checkSum = flaw::Utils::GetCheckSum(_checkSumData, sizeof(_checkSumData));
+
 			_StartRecv();
 		}
 	}
@@ -51,19 +55,45 @@ namespace flaw {
 				int offset = 0;
 				_currentPacket->header.packetSize = 0;
 
-				if (bytesTransferred < sizeof(PacketHeader)) {
-					// std::cout << "Not enough data for header\n";
+				// check checksum
+				if (bytesTransferred < sizeof(_checkSumData)) {
+					std::cout << "Not enough data for checksum\n";
+					StartRecv();
+					return;
+				}
+				
+				int checksum = 0;
+				for (; offset < sizeof(_checkSumData); offset++) {
+					checksum += _recvBuffer[offset];
+				}
+
+				if(((checksum + _checkSum) & 0xff) != 0) {
+					std::cout << "Invalid checksum\n";
+					StartRecv();
+					return;
+				}
+
+				if (bytesTransferred - offset < sizeof(PacketHeader)) {
+					std::cout << "Not enough data for header\n";
 					StartRecv();
 					return;
 				}
 
 				_currentPacket->SetHeaderBE(_recvBuffer.data(), offset);
 
-				if (bytesTransferred < _currentPacket->GetSerializedSize()) {
-					// std::cout << "Not enough data for packet\n";
+				if (!Packet::IsValidPacketId(_currentPacket->header.packetId)) {
+					std::cout << "Invalid packet id\n";
 					StartRecv();
 					return;
 				}
+
+				if (bytesTransferred - offset < _currentPacket->GetSerializedSize()) {
+					std::cout << "Not enough data for packet\n";
+					StartRecv();
+					return;
+				}
+
+				std::cout << "Received packet: packetid=" << _currentPacket->header.packetId << " size=" << _currentPacket->header.packetSize << "\n";
 
 				_currentPacket->SetSerializedData(_recvBuffer.data(), offset);
 				OnPacketReceived();
@@ -74,14 +104,16 @@ namespace flaw {
 	}
 
 	void UdpServer::Send(const Peer& endpoint, std::shared_ptr<Packet> packet) {
-		{
-			std::lock_guard<std::mutex> lock(_sendBufferStreamMutex);
-			std::ostream os(&_sendBufferStream);
-			packet->GetPacketRaw(os);
-		}
+		boost::asio::streambuf sendBuffer;
+		std::ostream os(&sendBuffer);
+
+		// append checksum bytes
+		os.write(reinterpret_cast<const char*>(_checkSumData), sizeof(_checkSumData));
+
+		packet->GetPacketRaw(os);
 
 		_socket.async_send_to(
-			_sendBufferStream.data(),
+			sendBuffer.data(),
 			endpoint.endpoint,
 			[this](const boost::system::error_code& error, size_t bytesTransferred) {
 				if (error) {
@@ -90,11 +122,6 @@ namespace flaw {
 				}
 
 				// std::cout << "Sent " << bytesTransferred << " bytes\n";
-
-				{
-					std::lock_guard<std::mutex> lock(_sendBufferStreamMutex);
-					_sendBufferStream.consume(bytesTransferred);
-				}
 			}
 		);
 	}

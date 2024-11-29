@@ -4,11 +4,14 @@
 #include <string>
 
 struct Config {
+	std::string dns;
+
 	std::string lobyServerIp;
 	short lobyServerPort;
 
 	std::string chatServerIp;
 	short chatServerPort;
+	
 
 	std::string mysqlIp;
 	short mysqlPort;

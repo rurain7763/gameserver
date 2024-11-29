@@ -38,5 +38,9 @@ namespace flaw {
 	void Packet::GetPacketRaw(std::ostream& os) const {
 		os.write(reinterpret_cast<const char*>(&header), sizeof(PacketHeader));
 		os.write(serializedData.data(), serializedData.size());
-	}	
+	}
+
+	bool Packet::IsValidPacketId(short id) {
+		return id >= 0 && id < SHRT_MAX;
+	}
 }
